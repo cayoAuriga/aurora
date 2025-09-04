@@ -1,1 +1,0 @@
-# Syllabus Service Package

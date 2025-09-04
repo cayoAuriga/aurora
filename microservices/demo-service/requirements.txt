@@ -1,0 +1,6 @@
+# Service-specific requirements
+# Add any additional dependencies here
+
+# Example:
+# requests==2.31.0
+# pillow==10.1.0
