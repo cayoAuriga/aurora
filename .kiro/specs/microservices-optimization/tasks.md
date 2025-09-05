@@ -22,7 +22,9 @@
   - _Requirements: 2.4, 3.1_
 
 - [ ] 2. Implement Configuration Service
-- [ ] 2.1 Create Configuration Service application
+- [x] 2.1 Create Configuration Service application
+
+
 
   - Implement FastAPI application for Configuration Service
   - Create configuration CRUD operations with database integration

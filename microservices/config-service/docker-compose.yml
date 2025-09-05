@@ -1,0 +1,69 @@
+# Docker Compose service template for config-service
+version: '3.8'
+
+services:
+  config-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aurora-config-service
+    environment:
+      - SERVICE_NAME=config-service
+      - SERVICE_PORT=8004
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DEBUG=${DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      
+      # Database configuration
+      - DB_HOST=${DB_HOST:-tidb}
+      - DB_PORT=${DB_PORT:-4000}
+      - DB_USERNAME=${DB_USERNAME:-root}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_DATABASE=config_service_db
+      - DB_SSL_CA=${DB_SSL_CA}
+      - DB_SSL_DISABLED=${DB_SSL_DISABLED:-false}
+      
+      # Redis configuration
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      
+      # Service URLs
+      - API_GATEWAY_URL=${API_GATEWAY_URL:-http://api-gateway:8000}
+      - SUBJECT_SERVICE_URL=${SUBJECT_SERVICE_URL:-http://subject-service:8002}
+      - SYLLABUS_SERVICE_URL=${SYLLABUS_SERVICE_URL:-http://syllabus-service:8001}
+      - FILE_SERVICE_URL=${FILE_SERVICE_URL:-http://file-service:8003}
+      - CONFIG_SERVICE_URL=${CONFIG_SERVICE_URL:-http://config-service:8004}
+      
+      # Security
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-your-secret-key}
+      
+    ports:
+      - "8004:8004"
+    
+    depends_on:
+      - tidb
+      - redis
+    
+    networks:
+      - aurora-network
+    
+    volumes:
+      - ./logs:/app/logs
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    restart: unless-stopped
+
+networks:
+  aurora-network:
+    external: true
+
+volumes:
+  logs:
+    driver: local
