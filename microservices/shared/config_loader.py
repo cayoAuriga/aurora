@@ -1,11 +1,19 @@
 """
-Configuration loading utilities for Aurora microservices
+Enhanced configuration loading utilities for Aurora microservices
 """
 import os
 import json
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, List
 from dataclasses import dataclass, field
 import logging
+import asyncio
+from .config_schemas import (
+    EnvironmentType, 
+    ConfigurationType, 
+    ConfigurationValidator,
+    StandardConfigKeys,
+    StandardFeatureFlags
+)
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +148,11 @@ class ServiceConfig:
             # Apply specific configurations to known attributes
             self._apply_remote_configs(all_configs)
             
+            # Validate loaded configurations
+            validation_errors = self._validate_configurations(all_configs)
+            if validation_errors:
+                logger.warning(f"Configuration validation warnings: {validation_errors}")
+            
             logger.info(f"Loaded {len(all_configs)} remote configurations")
             
         except Exception as e:
@@ -160,6 +173,35 @@ class ServiceConfig:
                 if attr_name:
                     setattr(self, attr_name, value)
                     logger.debug(f"Applied remote config {config_key} -> {attr_name}: {value}")
+    
+    def _validate_configurations(self, configs: Dict[str, Any]) -> List[str]:
+        """Validate loaded configurations"""
+        errors = []
+        validator = ConfigurationValidator()
+        
+        for key, value in configs.items():
+            # Validate standard configuration keys
+            if key in [StandardConfigKeys.LOG_LEVEL]:
+                if value not in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
+                    errors.append(f"Invalid log level: {value}")
+            
+            elif key in [StandardConfigKeys.DB_CONNECTION_POOL_SIZE]:
+                try:
+                    pool_size = int(value)
+                    if pool_size < 1 or pool_size > 100:
+                        errors.append(f"Database pool size should be between 1-100, got: {pool_size}")
+                except (ValueError, TypeError):
+                    errors.append(f"Database pool size must be integer, got: {value}")
+            
+            elif key in [StandardConfigKeys.HTTP_TIMEOUT]:
+                try:
+                    timeout = float(value)
+                    if timeout < 0.1 or timeout > 300:
+                        errors.append(f"HTTP timeout should be between 0.1-300 seconds, got: {timeout}")
+                except (ValueError, TypeError):
+                    errors.append(f"HTTP timeout must be number, got: {value}")
+        
+        return errors
     
     def get_config_value(self, key: str, default: Any = None) -> Any:
         """Get configuration value (remote configs take precedence)"""
@@ -212,6 +254,88 @@ class ConfigurationManager:
             config = self._configs[service_name]
             if config.use_remote_config:
                 await config.load_remote_configurations(self._get_config_client())
+    
+    async def validate_service_config(self, service_name: str) -> Dict[str, Any]:
+        """Validate service configuration and return validation results"""
+        if service_name not in self._configs:
+            return {"valid": False, "errors": ["Service configuration not found"]}
+        
+        config = self._configs[service_name]
+        validator = ConfigurationValidator()
+        errors = []
+        warnings = []
+        
+        # Validate service name
+        if not validator.validate_service_name(service_name):
+            errors.append("Invalid service name format")
+        
+        # Validate port
+        if not validator.validate_port(config.service_port):
+            errors.append(f"Invalid service port: {config.service_port}")
+        
+        # Validate environment
+        if not validator.validate_environment(config.environment):
+            errors.append(f"Invalid environment: {config.environment}")
+        
+        # Validate remote configurations
+        if config.remote_configs:
+            config_errors = config._validate_configurations(config.remote_configs)
+            warnings.extend(config_errors)
+        
+        return {
+            "valid": len(errors) == 0,
+            "errors": errors,
+            "warnings": warnings,
+            "service_name": service_name,
+            "config_count": len(config.remote_configs)
+        }
+    
+    async def get_feature_flag_status(self, service_name: str, flag_key: str, user_id: Optional[int] = None) -> bool:
+        """Get feature flag status for a service"""
+        config_client = self._get_config_client()
+        
+        try:
+            return await config_client.is_feature_enabled(
+                flag_key=flag_key,
+                user_id=user_id,
+                environment=self._configs.get(service_name, ServiceConfig(service_name)).environment
+            )
+        except Exception as e:
+            logger.error(f"Failed to get feature flag {flag_key} for {service_name}: {e}")
+            return False
+    
+    async def get_standard_config_values(self, service_name: str) -> Dict[str, Any]:
+        """Get all standard configuration values for a service"""
+        if service_name not in self._configs:
+            return {}
+        
+        config = self._configs[service_name]
+        config_client = self._get_config_client()
+        
+        standard_configs = {}
+        
+        # Get standard configuration keys
+        standard_keys = [
+            StandardConfigKeys.LOG_LEVEL,
+            StandardConfigKeys.DB_CONNECTION_POOL_SIZE,
+            StandardConfigKeys.HTTP_TIMEOUT,
+            StandardConfigKeys.CORS_ALLOWED_ORIGINS,
+            StandardConfigKeys.RATE_LIMIT_REQUESTS_PER_MINUTE
+        ]
+        
+        for key in standard_keys:
+            try:
+                value = await config_client.get_configuration(
+                    config_key=key,
+                    environment=config.environment,
+                    service_name=service_name
+                )
+                if value is not None:
+                    standard_configs[key] = value
+            except Exception as e:
+                logger.debug(f"Could not get config {key}: {e}")
+        
+        return standard_configs
     
     def _get_config_client(self):
         """Get configuration client (lazy initialization)"""
