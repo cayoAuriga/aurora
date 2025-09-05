@@ -22,7 +22,8 @@
   - _Requirements: 2.4, 3.1_
 
 - [ ] 2. Implement Configuration Service
-- [x] 2.1 Create Configuration Service application
+- [ ] 2.1 Create Configuration Service application
+
 
 
 
