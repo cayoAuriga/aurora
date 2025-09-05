@@ -34,7 +34,8 @@
   - Write unit tests for configuration service functionality
   - _Requirements: 4.1, 4.2_
 
-- [ ] 2.2 Implement service discovery and health checks
+- [-] 2.2 Implement service discovery and health checks
+
 
   - Create service registry functionality for service discovery
   - Write health check endpoints for all services
