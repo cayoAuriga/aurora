@@ -9,6 +9,8 @@ Centralized configuration and feature flags management service for Aurora micros
 - **Environment Support**: Different configurations for development, staging, and production
 - **Service-specific Configs**: Configurations scoped to specific microservices
 - **Configuration History**: Track all configuration changes with audit logs
+- **Service Discovery**: Built-in service registry and discovery functionality
+- **Health Monitoring**: Advanced health checks with detailed status reporting
 - **RESTful API**: Complete CRUD operations via REST endpoints
 
 ## Architecture
@@ -73,6 +75,17 @@ The Configuration Service follows the CQRS pattern and includes:
 - `PUT /api/v1/feature-flags/rollout/{key}` - Update rollout percentage
 - `DELETE /api/v1/feature-flags/{id}` - Delete feature flag
 - `GET /api/v1/feature-flags/bulk` - Get feature flags as key-value pairs
+
+### Service Discovery
+
+- `GET /api/v1/discovery/services` - Get all registered services
+- `GET /api/v1/discovery/services/healthy` - Get healthy services only
+- `GET /api/v1/discovery/services/{service_name}` - Get specific service info
+- `POST /api/v1/discovery/services/{service_name}/heartbeat` - Send service heartbeat
+- `DELETE /api/v1/discovery/services/{service_name}` - Deregister service
+- `POST /api/v1/discovery/cleanup` - Clean up stale services
+- `GET /api/v1/discovery/health-check/{service_name}` - Health check specific service
+- `GET /api/v1/discovery/health-check-all` - Health check all services
 
 ## Usage Examples
 

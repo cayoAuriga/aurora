@@ -9,6 +9,7 @@ from shared.aurora_logging import get_logger
 
 from .routers.configuration_router import router as configuration_router
 from .routers.feature_flag_router import router as feature_flag_router
+from .routers.discovery_router import router as discovery_router
 
 # Service configuration
 config = get_config("config-service")
@@ -62,6 +63,7 @@ async def status():
 service.add_router(root_router, prefix="", tags=["root"])
 service.add_router(configuration_router, prefix="/api/v1", tags=["configurations"])
 service.add_router(feature_flag_router, prefix="/api/v1", tags=["feature-flags"])
+service.add_router(discovery_router, prefix="/api/v1", tags=["service-discovery"])
 
 # Export the FastAPI app
 app = service.app

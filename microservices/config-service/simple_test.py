@@ -29,6 +29,7 @@ def test_service_structure():
         "routers/__init__.py",
         "routers/configuration_router.py",
         "routers/feature_flag_router.py",
+        "routers/discovery_router.py",
         "tests/test_configuration_service.py",
         "tests/test_feature_flag_service.py",
         "tests/test_integration.py",

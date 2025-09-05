@@ -183,6 +183,14 @@ class BaseService:
     
     def _setup_health_endpoints(self):
         """Set up health check endpoints"""
+        from .health_checks import create_standard_health_checks
+        from .service_discovery import get_discovery_client
+        
+        # Create health check manager
+        self.health_manager = create_standard_health_checks(
+            self.service_name,
+            get_discovery_client()
+        )
         
         @self.app.get("/health")
         async def health_check_endpoint():
@@ -196,35 +204,25 @@ class BaseService:
         @self.app.get("/health/ready")
         async def readiness_check():
             """Readiness check including dependencies"""
-            checks = {
-                "service": "healthy",
-                "database": "unknown"
-            }
-            
-            # Check database
             try:
-                db_healthy = await async_health_check(self.service_name)
-                checks["database"] = "healthy" if db_healthy else "unhealthy"
+                health_status = await self.health_manager.get_overall_health()
+                status_code = 200 if health_status["status"] == "healthy" else 503
+                
+                return JSONResponse(
+                    status_code=status_code,
+                    content=health_status
+                )
             except Exception as e:
-                checks["database"] = "unhealthy"
-                self.logger.error(f"Database health check failed: {e}")
-            
-            # Determine overall status
-            overall_status = "healthy" if all(
-                status == "healthy" for status in checks.values()
-            ) else "unhealthy"
-            
-            status_code = 200 if overall_status == "healthy" else 503
-            
-            return JSONResponse(
-                status_code=status_code,
-                content={
-                    "status": overall_status,
-                    "service": self.service_name,
-                    "checks": checks,
-                    "timestamp": time.time()
-                }
-            )
+                self.logger.error(f"Health check failed: {e}")
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "status": "unhealthy",
+                        "service": self.service_name,
+                        "error": str(e),
+                        "timestamp": time.time()
+                    }
+                )
         
         @self.app.get("/health/live")
         async def liveness_check():
@@ -234,14 +232,69 @@ class BaseService:
                 "service": self.service_name,
                 "timestamp": time.time()
             }
+        
+        @self.app.get("/health/detailed")
+        async def detailed_health_check():
+            """Detailed health check with all components"""
+            try:
+                health_status = await self.health_manager.get_overall_health(use_cache=False)
+                status_code = 200 if health_status["status"] in ["healthy", "degraded"] else 503
+                
+                return JSONResponse(
+                    status_code=status_code,
+                    content=health_status
+                )
+            except Exception as e:
+                self.logger.error(f"Detailed health check failed: {e}")
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "status": "unhealthy",
+                        "service": self.service_name,
+                        "error": str(e),
+                        "timestamp": time.time()
+                    }
+                )
     
     async def startup(self):
         """Service startup logic - override in subclasses"""
-        pass
+        from .service_discovery import get_discovery_client
+        
+        # Register service with discovery
+        try:
+            discovery_client = get_discovery_client()
+            await discovery_client.register_self(
+                service_name=self.service_name,
+                host=self.config.host,
+                port=self.config.service_port,
+                health_endpoint="/health/ready",
+                metadata={
+                    "version": "1.0.0",
+                    "environment": self.config.environment,
+                    "started_at": time.time()
+                }
+            )
+            self.logger.info(f"Registered {self.service_name} with service discovery")
+        except Exception as e:
+            self.logger.error(f"Failed to register with service discovery: {e}")
     
     async def shutdown(self):
         """Service shutdown logic - override in subclasses"""
-        pass
+        from .service_discovery import get_discovery_client, cleanup_discovery
+        
+        # Deregister service
+        try:
+            discovery_client = get_discovery_client()
+            await discovery_client.registry.deregister_service(self.service_name)
+            self.logger.info(f"Deregistered {self.service_name} from service discovery")
+        except Exception as e:
+            self.logger.error(f"Failed to deregister from service discovery: {e}")
+        
+        # Cleanup discovery clients
+        try:
+            await cleanup_discovery()
+        except Exception as e:
+            self.logger.error(f"Failed to cleanup discovery clients: {e}")
     
     def add_router(self, router, prefix: str = "", tags: Optional[List[str]] = None):
         """Add a router to the application"""
