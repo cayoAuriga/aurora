@@ -52,6 +52,7 @@
   - _Requirements: 3.3, 4.1_
 
 - [ ] 3. Implement Subject Service
+
 - [ ] 3.1 Create Subject Service application structure
 
   - Create FastAPI application for Subject Service

@@ -1,78 +1,71 @@
 """
 Configuration Service - Centralized configuration and feature flags management
+Refactored modular version
 """
-from fastapi import APIRouter
 
-from shared.base_app import BaseService, create_service
-from shared.config import get_config
+import os
+import sys
+from dotenv import load_dotenv
+from fastapi import FastAPI
+
+# === PATH MANAGEMENT ===
+# ⚠️ Temporal: en producción usa un paquete instalable
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+
+# === LOAD ENV VARS ===
+load_dotenv()
+
+# === INTERNAL IMPORTS ===
+from shared.base_app import BaseService
 from shared.aurora_logging import get_logger
+from config import service_config
+from database import Base, engine  # Para inicializar DB
+from routers import config_router
 
-from .routers.configuration_router import router as configuration_router
-from .routers.feature_flag_router import router as feature_flag_router
-from .routers.discovery_router import router as discovery_router
-
-# Service configuration
-config = get_config("config-service")
+# === LOGGER ===
 logger = get_logger("config-service")
 
-# Create service instance
-service = create_service(
-    service_name="config-service",
-    config=config,
+# === CREATE BASE SERVICE ===
+service = BaseService(
+    service_name=service_config.service_name,
+    config=service_config,
     title="Configuration Service",
-    description="Centralized configuration and feature flags management service"
+    description="Centralized configuration and feature flags management service with TiDB integration",
 )
 
-# Root router
-root_router = APIRouter()
+# === REGISTER ROUTERS ===
+service.add_router(config_router, prefix="/aurora_api/v1", tags=["configurations"])
+# service.add_router(flag_router, prefix="/aurora_api/v1", tags=["feature-flags"])
+
+# === FASTAPI APP ===
+app: FastAPI = service.app
+
+# === STARTUP EVENTS ===
+@app.on_event("startup")
+async def startup_event():
+    """Initialize resources on startup"""
+    logger.info("🚀 Starting Configuration Service...")
+    # Crear tablas si no existen (solo para entornos dev/test)
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("✅ Database initialized")
+    except Exception as e:
+        logger.error(f"❌ Database initialization failed: {e}")
+        raise
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    logger.info("🛑 Shutting down Configuration Service...")
 
 
-@root_router.get("/")
-async def root():
-    """Root endpoint"""
-    return {
-        "message": "Configuration Service is running",
-        "service": "config-service",
-        "version": "1.0.0",
-        "endpoints": {
-            "configurations": "/api/v1/configurations",
-            "feature_flags": "/api/v1/feature-flags",
-            "health": "/health",
-            "docs": "/docs"
-        }
-    }
-
-
-@root_router.get("/status")
-async def status():
-    """Service status endpoint"""
-    return {
-        "service": "config-service",
-        "status": "healthy",
-        "features": [
-            "Configuration Management",
-            "Feature Flags",
-            "Configuration History",
-            "Environment-specific Configs",
-            "Service-specific Configs"
-        ]
-    }
-
-
-# Add routers to service
-service.add_router(root_router, prefix="", tags=["root"])
-service.add_router(configuration_router, prefix="/api/v1", tags=["configurations"])
-service.add_router(feature_flag_router, prefix="/api/v1", tags=["feature-flags"])
-service.add_router(discovery_router, prefix="/api/v1", tags=["service-discovery"])
-
-# Export the FastAPI app
-app = service.app
-
+# === ENTRYPOINT ===
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=config.service_port,
-        reload=config.debug
+        port=service_config.service_port,
+        reload=service_config.debug,
     )

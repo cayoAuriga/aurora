@@ -1,178 +1,426 @@
 # Configuration Service
 
-Centralized configuration and feature flags management service for Aurora microservices architecture.
+A centralized configuration and feature flags management service built with FastAPI and TiDB.
 
-## Features
+## 🏗️ Refactored Architecture
 
-- **Configuration Management**: Store and manage application configurations
-- **Feature Flags**: Control feature rollouts with percentage-based gradual deployment
-- **Environment Support**: Different configurations for development, staging, and production
-- **Service-specific Configs**: Configurations scoped to specific microservices
-- **Configuration History**: Track all configuration changes with audit logs
-- **Service Discovery**: Built-in service registry and discovery functionality
-- **Health Monitoring**: Advanced health checks with detailed status reporting
-- **RESTful API**: Complete CRUD operations via REST endpoints
+This service has been refactored into a clean, modular structure based on the working `main.py` implementation. The new architecture separates concerns and makes the codebase more maintainable.
 
-## Architecture
+### 📁 Project Structure
 
-The Configuration Service follows the CQRS pattern and includes:
+```
+config-service/
+├── main.py              # Main application entry point (refactored)
+├── app.py               # Alternative entry point for deployment
+├── config.py            # Configuration management (no hardcoded values)
+├── models.py            # Pydantic models
+├── database.py          # Database connection and initialization
+├── routers.py           # API routers and endpoints
+├── test_service.py      # Service verification tests
+├── requirements.txt     # Python dependencies
+├── .env.example         # Environment variables template
+├── README.md           # This file
+└── tests/              # Test files
+```
 
-- **Models**: SQLAlchemy models for database entities
-- **Schemas**: Pydantic schemas for request/response validation
-- **Repositories**: Data access layer with business logic
-- **Services**: Business logic layer
-- **Routers**: FastAPI route handlers
+## ✨ Features
 
-## Setup
+- **Configuration Management**: Store and retrieve application configurations
+- **Feature Flags**: Manage feature toggles with rollout percentages
+- **Environment Support**: Different configurations per environment
+- **Service-specific Configs**: Configurations scoped to specific services
+- **TiDB Integration**: Cloud-native distributed SQL database
+- **Real-time Updates**: Live configuration changes
+- **RESTful API**: Complete CRUD operations
+- **OpenAPI Documentation**: Auto-generated API docs
+- **Modular Architecture**: Clean separation of concerns
+- **No Hardcoded Values**: All configuration via environment variables
 
-1. Copy environment variables:
+## 🚀 Quick Start
+
+1. **Install Dependencies**:
+
    ```bash
-   cp .env.example .env
-   ```
-
-2. Install dependencies:
-   ```bash
-   pip install -r ../shared/requirements.txt
    pip install -r requirements.txt
    ```
 
-3. Set up the database (TiDB):
+2. **Set Environment Variables**:
+
    ```bash
-   # Run the database schema
-   mysql -h localhost -P 4000 -u root < database/schema.sql
+   cp .env.example .env
+   # Edit .env with your database credentials
    ```
 
-4. Run the service:
+3. **Test the Refactored Service**:
+
    ```bash
+   python test_service.py
+   ```
+
+4. **Run the Service**:
+
+   ```bash
+   # Option 1: Direct main.py
    python main.py
+
+   # Option 2: Using app.py
+   python app.py
+
+   # Option 3: Using uvicorn
+   uvicorn main:app --host 0.0.0.0 --port 8004 --reload
    ```
 
-## API Endpoints
+5. **Access API Documentation**:
+   - Swagger UI: http://localhost:8004/docs
+   - ReDoc: http://localhost:8004/redoc
+
+## 🔧 Configuration
+
+All configuration is handled through environment variables (no hardcoded values):
+
+| Variable       | Description             | Default          |
+| -------------- | ----------------------- | ---------------- |
+| `SERVICE_NAME` | Service identifier      | `config-service` |
+| `SERVICE_PORT` | Port to run the service | `8004`           |
+| `ENVIRONMENT`  | Environment name        | `development`    |
+| `DEBUG`        | Enable debug mode       | `false`          |
+| `LOG_LEVEL`    | Logging level           | `INFO`           |
+| `HOST`         | Service host            | `127.0.0.1`      |
+| `DB_HOST`      | Database host           | TiDB Cloud host  |
+| `DB_PORT`      | Database port           | `4000`           |
+| `DB_USERNAME`  | Database username       | -                |
+| `DB_PASSWORD`  | Database password       | -                |
+| `DB_DATABASE`  | Database name           | `config_db`      |
+| `DB_SSL_CA`    | SSL certificate path    | -                |
+
+## 📡 API Endpoints
 
 ### Configuration Management
 
 - `POST /api/v1/configurations/` - Create configuration
-- `GET /api/v1/configurations/` - List configurations
-- `GET /api/v1/configurations/{id}` - Get configuration by ID
+- `GET /api/v1/configurations/` - List all configurations
 - `GET /api/v1/configurations/key/{key}` - Get configuration by key
-- `GET /api/v1/configurations/value/{key}` - Get configuration value directly
-- `PUT /api/v1/configurations/{id}` - Update configuration
-- `PUT /api/v1/configurations/key/{key}` - Set configuration value
-- `DELETE /api/v1/configurations/{id}` - Delete configuration
-- `GET /api/v1/configurations/{id}/history` - Get configuration history
-- `GET /api/v1/configurations/bulk` - Get configurations as key-value pairs
 
 ### Feature Flags
 
 - `POST /api/v1/feature-flags/` - Create feature flag
-- `GET /api/v1/feature-flags/` - List feature flags
-- `GET /api/v1/feature-flags/{id}` - Get feature flag by ID
-- `GET /api/v1/feature-flags/key/{key}` - Get feature flag by key
-- `GET /api/v1/feature-flags/evaluate/{key}` - Evaluate feature flag
-- `GET /api/v1/feature-flags/check/{key}` - Simple boolean check
-- `PUT /api/v1/feature-flags/{id}` - Update feature flag
-- `PUT /api/v1/feature-flags/toggle/{key}` - Toggle feature flag
-- `PUT /api/v1/feature-flags/rollout/{key}` - Update rollout percentage
-- `DELETE /api/v1/feature-flags/{id}` - Delete feature flag
-- `GET /api/v1/feature-flags/bulk` - Get feature flags as key-value pairs
+- `GET /api/v1/feature-flags/` - List all feature flags
+- `GET /api/v1/feature-flags/check/{key}` - Check if flag is enabled
 
-### Service Discovery
+### Service Information
 
-- `GET /api/v1/discovery/services` - Get all registered services
-- `GET /api/v1/discovery/services/healthy` - Get healthy services only
-- `GET /api/v1/discovery/services/{service_name}` - Get specific service info
-- `POST /api/v1/discovery/services/{service_name}/heartbeat` - Send service heartbeat
-- `DELETE /api/v1/discovery/services/{service_name}` - Deregister service
-- `POST /api/v1/discovery/cleanup` - Clean up stale services
-- `GET /api/v1/discovery/health-check/{service_name}` - Health check specific service
-- `GET /api/v1/discovery/health-check-all` - Health check all services
+- `GET /` - Service information
+- `GET /status` - Service status and health
 
-## Usage Examples
+## 🗄️ Database Schema
+
+### app_configurations
+
+- `id` - Primary key
+- `config_key` - Configuration key
+- `config_value` - Configuration value
+- `environment` - Environment (development, staging, production)
+- `service_name` - Service name (global for shared configs)
+- `description` - Optional description
+- `created_at` - Creation timestamp
+- `updated_at` - Last update timestamp
+
+### feature_flags
+
+- `id` - Primary key
+- `flag_name` - Human-readable flag name
+- `flag_key` - Unique flag identifier
+- `description` - Optional description
+- `is_enabled` - Flag status (true/false)
+- `rollout_percentage` - Percentage of users to enable (0-100)
+- `environment` - Environment scope
+- `created_at` - Creation timestamp
+- `updated_at` - Last update timestamp
+
+## 🧪 Testing
+
+Run the verification tests to ensure everything works:
+
+```bash
+python test_service.py
+```
+
+This will test:
+
+- Module imports
+- Configuration loading
+- App creation
+- Route registration
+
+## 🔄 Refactoring Changes
+
+### What was removed:
+
+- Old modular directories (`models/`, `routers/`, `services/`, `repositories/`, `schemas/`, `database/`)
+- Unused files (`app.py`, `main_simple.py`, `diagnose.py`)
+- Hardcoded configuration values
+
+### What was added:
+
+- `config.py` - Centralized configuration management
+- `models.py` - Clean Pydantic models
+- `database.py` - Database connection and initialization
+- `routers.py` - API endpoints and routing
+- `test_service.py` - Service verification
+- Environment-based configuration
+
+### What was improved:
+
+- Modular architecture with clear separation of concerns
+- No hardcoded values (everything configurable via environment)
+- Cleaner imports and dependencies
+- Better error handling and logging
+- Simplified deployment options
+
+## 🚀 Deployment
+
+### Option 1: Direct Python
+
+```bash
+python main.py
+```
+
+### Option 2: Using uvicorn
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port 8004
+```
+
+### Option 3: Using app.py
+
+```bash
+uvicorn app:app --host 0.0.0.0 --port 8004
+```
+
+### Option 4: Docker
+
+```bash
+docker build -t config-service .
+docker run -p 8004:8004 config-service
+```
+
+## 🔍 Usage Examples
 
 ### Configuration Management
 
 ```python
+import httpx
+
 # Create a configuration
-POST /api/v1/configurations/
-{
-    "config_key": "database.max_connections",
-    "config_value": 100,
+config_data = {
+    "config_key": "api_timeout",
+    "config_value": "30",
     "environment": "production",
     "service_name": "user-service",
-    "description": "Maximum database connections"
+    "description": "API timeout in seconds"
 }
 
-# Get configuration value
-GET /api/v1/configurations/value/database.max_connections?environment=production&service_name=user-service
+response = httpx.post("http://localhost:8004/api/v1/configurations/", json=config_data)
+print(response.json())
+
+# Get configuration by key
+response = httpx.get(
+    "http://localhost:8004/api/v1/configurations/key/api_timeout",
+    params={"environment": "production", "service_name": "user-service"}
+)
+print(response.json())
 ```
 
 ### Feature Flags
 
 ```python
+import httpx
+
 # Create a feature flag
-POST /api/v1/feature-flags/
-{
+flag_data = {
     "flag_name": "New Dashboard",
     "flag_key": "new_dashboard",
     "description": "Enable new dashboard UI",
-    "is_enabled": true,
-    "rollout_percentage": 25,
+    "is_enabled": True,
+    "rollout_percentage": 50,
     "environment": "production"
 }
 
-# Check if feature is enabled for user
-GET /api/v1/feature-flags/check/new_dashboard?user_id=123
+response = httpx.post("http://localhost:8004/api/v1/feature-flags/", json=flag_data)
+print(response.json())
 
-# Gradually increase rollout
-PUT /api/v1/feature-flags/rollout/new_dashboard?percentage=50
+# Check if flag is enabled
+response = httpx.get(
+    "http://localhost:8004/api/v1/feature-flags/check/new_dashboard",
+    params={"user_id": "user123", "environment": "production"}
+)
+print(response.json())  # {"enabled": true/false}
 ```
 
-## Testing
+## 🔧 Development
 
-Run the validation tests:
-```bash
-python simple_test.py
-```
+### Adding New Features
 
-Run unit tests:
-```bash
-pytest tests/
-```
+1. Add models to `models.py`
+2. Add database operations to `database.py`
+3. Add API endpoints to `routers.py`
+4. Update configuration in `config.py` if needed
+5. Test with `test_service.py`
 
-## Docker
-
-Build and run with Docker:
-
-```bash
-docker build -t aurora-config-service .
-docker run -p 8004:8004 aurora-config-service
-```
-
-Or use Docker Compose:
+### Running in Development
 
 ```bash
-docker-compose up
+# With auto-reload
+uvicorn main:app --reload --host 0.0.0.0 --port 8004
 ```
 
-## API Documentation
+## 🛠️ Troubleshooting
 
-Once running, visit:
-- Swagger UI: http://localhost:8004/docs
-- ReDoc: http://localhost:8004/redoc
-- Service Status: http://localhost:8004/status
+### Common Issues
 
-## Health Checks
+1. **Import Errors**
 
-- Basic health: http://localhost:8004/health
-- Readiness: http://localhost:8004/health/ready
-- Liveness: http://localhost:8004/health/live
+   - Run `python test_service.py` to verify all modules load correctly
+   - Check that shared libraries are accessible
 
-## Database Schema
+2. **Database Connection Errors**
 
-The service uses the following main tables:
+   - Verify environment variables in `.env`
+   - Check TiDB Cloud connectivity
+   - Verify SSL certificate path
 
-- `app_configurations` - Application configurations
-- `config_history` - Configuration change history
-- `feature_flags` - Feature flag definitions
+3. **Configuration Issues**
+   - All values are now environment-based
+   - Check `.env` file for missing variables
+   - Use defaults defined in `config.py`
 
-See `database/schema.sql` for the complete schema.
+### Verification Steps
+
+```bash
+# 1. Test imports and configuration
+python test_service.py
+
+# 2. Check service status
+curl http://localhost:8004/status
+
+# 3. Check API documentation
+open http://localhost:8004/docs
+```
+
+## 📋 For Postman Testing
+
+See the `POSTMAN_TESTING.md` file for detailed instructions on how to test all endpoints with Postman.
+
+## 🔗 Integration with Other Services
+
+The Configuration Service is designed to be consumed by other microservices in the Aurora ecosystem:
+
+```python
+# Example: Using configurations in another service
+import httpx
+
+async def get_config(key: str, service_name: str = "global"):
+    response = await httpx.AsyncClient().get(
+        f"http://config-service:8004/api/v1/configurations/key/{key}",
+        params={"service_name": service_name}
+    )
+    if response.status_code == 200:
+        return response.json()["config_value"]
+    return None
+
+# Example: Checking feature flags
+async def is_feature_enabled(flag_key: str, user_id: str = None):
+    response = await httpx.AsyncClient().get(
+        f"http://config-service:8004/api/v1/feature-flags/check/{flag_key}",
+        params={"user_id": user_id} if user_id else {}
+    )
+    if response.status_code == 200:
+        return response.json()["enabled"]
+    return False
+```
+# routers.py (versión funcional)
+from functools import partial
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+from typing import List, Dict, Callable
+
+from database import get_db
+from dependencies import get_configuration_functions, get_configuration_repository, get_enhanced_configuration_functions, get_update_configuration_fn
+from models.schemas import ConfigurationCreate, ConfigurationUpdate, ConfigurationResponse
+
+config_router = APIRouter()
+
+# === OPCIÓN 1: USANDO DICCIONARIO DE FUNCIONES ===
+
+@config_router.post("/configurations/", response_model=ConfigurationResponse)
+async def create_configuration(
+    config_data: ConfigurationCreate,
+    db: Session = Depends(get_db),
+    service_fns: Dict[str, Callable] = Depends(get_configuration_functions)
+    #                                    ↑
+    #                    Inyectamos un dict de funciones en lugar de una clase
+):
+    """
+    Crear configuración usando servicios funcionales
+    
+    ¿Cómo funciona la inyección aquí?
+    1. get_configuration_functions() retorna un dict de funciones
+    2. Cada función ya tiene el repository "baked in" via partial()
+    3. Solo necesitamos pasar db y los parámetros específicos
+    """
+    return service_fns['create'](db, config_data)
+
+@config_router.get("/configurations/", response_model=List[ConfigurationResponse])
+async def list_configurations(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_db),
+    service_fns: Dict[str, Callable] = Depends(get_configuration_functions)
+):
+    """Listar configuraciones"""
+    return service_fns['get_all'](db, skip, limit)
+
+@config_router.get("/configurations/{config_id}", response_model=ConfigurationResponse)
+async def get_configuration(
+    config_id: int,
+    db: Session = Depends(get_db),
+    service_fns: Dict[str, Callable] = Depends(get_configuration_functions)
+):
+    """Obtener configuración por ID"""
+    return service_fns['get_by_id'](db, config_id)
+
+@config_router.get("/configurations/key/{config_key}", response_model=ConfigurationResponse)
+async def get_configuration_by_key(
+    config_key: str,
+    environment: str = Query("development"),
+    service_name: str = Query("global"),
+    db: Session = Depends(get_db),
+    service_fns: Dict[str, Callable] = Depends(get_configuration_functions)
+):
+    """Obtener configuración por clave"""
+    return service_fns['get_by_key'](db, config_key, environment, service_name)
+
+# === OPCIÓN 2: INYECCIÓN DE FUNCIONES INDIVIDUALES ===
+
+@config_router.put("/configurations/{config_id}", response_model=ConfigurationResponse)
+async def update_configuration(
+    config_id: int,
+    config_data: ConfigurationUpdate,
+    db: Session = Depends(get_db),
+    update_fn: Callable = Depends(get_update_configuration_fn),
+):
+    return update_fn(db, config_id, config_data)
+
+# === OPCIÓN 3: USANDO ENHANCED FUNCTIONS ===
+
+@config_router.delete("/configurations/{config_id}")
+async def delete_configuration(
+    config_id: int,
+    db: Session = Depends(get_db),
+    service_fns: Dict[str, Callable] = Depends(get_enhanced_configuration_functions)
+    #                                           ↑
+    #                        Estas funciones ya tienen logging y error handling
+):
+    """Eliminar configuración con enhanced functions"""
+    service_fns['delete'](db, config_id)
+    return {"message": f"Configuration {config_id} deleted successfully"}
