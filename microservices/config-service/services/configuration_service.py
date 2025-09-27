@@ -4,7 +4,7 @@ Servicios funcionales para configuraciones
 Cada función es pura (dados los mismos inputs, produce los mismos outputs)
 """
 import functools
-from typing import List, Optional, Callable
+from typing import Dict, List, Optional, Callable
 from functools import partial
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
@@ -95,7 +95,7 @@ def delete_configuration_fn(
 
 # === FUNCIONES FACTORY PARA INYECCIÓN DE DEPENDENCIAS ===
 
-def create_configuration_service(repository: ConfigurationRepository):
+def create_configuration_service(repository: ConfigurationRepository) -> Dict[str, Callable]:
     """
     Factory que retorna funciones parcialmente aplicadas
     Esto es similar a currying - aplicamos el repository y retornamos funciones

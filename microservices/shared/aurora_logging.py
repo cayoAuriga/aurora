@@ -107,8 +107,19 @@ def setup_logging(
 
 
 def get_logger(name: str) -> logging.Logger:
-    """Get a logger instance"""
-    return logging.getLogger(name)
+     
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        # Evitamos agregar múltiples handlers si se reutiliza
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(name)s - %(message)s"
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+
+    return logger
 
 
 def log_request(logger: logging.Logger, method: str, path: str, status_code: int, 

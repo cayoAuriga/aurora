@@ -1,97 +1,75 @@
-# dependencies.py (actualizado para funcional)
+# dependencies.py
+
 from functools import lru_cache, partial
-from typing import Dict, Callable, Any, List
-from sqlalchemy.orm import Session
+from typing import Dict, Callable, Type, Any
 from fastapi import Depends
-from models.schemas import ConfigurationCreate, ConfigurationResponse
-from database import get_db
-from repositories.configuration_repository import ConfigurationRepository
-from services.configuration_service import (
-    create_configuration_fn,
-    create_configuration_service,
-    get_all_configurations_fn,
-    update_configuration_fn,
-    with_error_handling,
-    with_logging
-)
+from sqlalchemy.orm import Session
 
-# === DEPENDENCY INJECTION FUNCIONAL ===
 
-@lru_cache()
-def get_configuration_repository() -> ConfigurationRepository:
-    """Factory para repositorio (singleton)"""
-    return ConfigurationRepository()
-
-def get_configuration_functions(
-    repository: ConfigurationRepository = Depends(get_configuration_repository)
-) -> Dict[str, Callable]:
+# === REPOSITORY FACTORY ===
+def repository_factory(repo_cls: Type[Any]):
     """
-    Factory que retorna un diccionario de funciones de servicio
-    
-    En lugar de inyectar una clase, inyectamos un dict de funciones
-    Cada función ya tiene el repository 'baked in' via partial application
+    Factory for repositories (singleton with lru_cache)
+    Example: get_configuration_repository = repository_factory(ConfigurationRepository)
     """
-    return create_configuration_service(repository)
+    @lru_cache()
+    def get_repo() -> Any:
+        return repo_cls()
+    return get_repo
 
-# === ALTERNATIVA: FUNCIONES INDIVIDUALES ===
-def get_update_configuration_fn(
-    repository: ConfigurationRepository = Depends(get_configuration_repository)
+
+# === SERVICE FUNCTIONS FACTORY ===
+def service_functions_factory(
+    service_creator: Callable[[Any], Dict[str, Callable]],
+    repository_dep: Callable = None
 ):
-    return partial(update_configuration_fn, repository)
-def get_create_configuration_fn(
-    repository: ConfigurationRepository = Depends(get_configuration_repository)
-) -> Callable[[Session, ConfigurationCreate], ConfigurationResponse]:
-    """Inyecta solo la función de crear"""
-    return partial(create_configuration_fn, repository)
-
-def get_list_configurations_fn(
-    repository: ConfigurationRepository = Depends(get_configuration_repository)
-) -> Callable[[Session, int, int], List[ConfigurationResponse]]:
-    """Inyecta solo la función de listar"""
-    return partial(get_all_configurations_fn, repository)
-
-
-# === ALTERNATIVA: ENHANCED FUNCTIONS ===
-
-def get_enhanced_configuration_functions(
-    repository: ConfigurationRepository = Depends(get_configuration_repository)
-) -> Dict[str, Callable]:
-    """Retorna funciones con error handling y logging aplicados"""
-    base_functions = create_configuration_service(repository)
-    
-    # Aplicar decoradores funcionales a cada función
-    return {
-        'create': with_logging(with_error_handling(base_functions['create'])),
-        'get_all': with_logging(with_error_handling(base_functions['get_all'])),
-        'get_by_id': with_logging(with_error_handling(base_functions['get_by_id'])),
-        'get_by_key': with_logging(with_error_handling(base_functions['get_by_key'])),
-        'update': with_logging(with_error_handling(base_functions['update'])),
-        'delete': with_logging(with_error_handling(base_functions['delete']))
-    }
-
-# === PATTERN: FUNCTION COMPOSITION ===
-
-def compose_service_pipeline(repository: ConfigurationRepository):
     """
-    Compone un pipeline de funciones para el servicio
-    Pattern: Function Composition + Partial Application
+    Factory that returns a dict of service functions with repository baked-in.
+    Example:
+        get_configuration_functions = service_functions_factory(create_configuration_service, get_configuration_repository)
     """
-    def pipeline():
-        # Base functions con repository aplicado
-        base_fns = create_configuration_service(repository)
-        
-        # Pipeline de transformaciones
-        enhanced_fns = {}
+    def get_functions(repository: Any = Depends(repository_dep)) -> Dict[str, Callable]:
+        return service_creator(repository)
+    return get_functions
+
+
+# === INDIVIDUAL FUNCTION FACTORY ===
+def single_function_factory(
+    fn: Callable,
+    repository_dep: Callable
+):
+    """
+    Factory for injecting a single function with repository baked-in.
+    Example:
+        get_create_configuration_fn = single_function_factory(create_configuration_fn, get_configuration_repository)
+    """
+    def get_fn(repository: Any = Depends(repository_dep)) -> Callable:
+        return partial(fn, repository)
+    return get_fn
+
+
+# === ENHANCED SERVICE PIPELINE ===
+def pipeline_factory(
+    service_creator: Callable[[Any], Dict[str, Callable]],
+    decorators: list[Callable[[Callable], Callable]],
+    repository_dep: Callable
+):
+    """
+    Factory that composes a pipeline of decorators (logging, error handling, etc.)
+    Example:
+        get_composed_configuration_service = pipeline_factory(
+            create_configuration_service,
+            [with_logging, with_error_handling],
+            get_configuration_repository
+        )
+    """
+    def get_pipeline(repository: Any = Depends(repository_dep)) -> Dict[str, Callable]:
+        base_fns = service_creator(repository)
+        enhanced = {}
         for name, fn in base_fns.items():
-            # Compone: logging ∘ error_handling ∘ base_function
-            enhanced_fns[name] = with_logging(with_error_handling(fn))
-        
-        return enhanced_fns
-    
-    return pipeline()
-
-def get_composed_configuration_service(
-    repository: ConfigurationRepository = Depends(get_configuration_repository)
-) -> Dict[str, Callable]:
-    """Dependency que retorna el pipeline compuesto"""
-    return compose_service_pipeline(repository)
+            # Compose decorators in order
+            for deco in decorators:
+                fn = deco(fn)
+            enhanced[name] = fn
+        return enhanced
+    return get_pipeline

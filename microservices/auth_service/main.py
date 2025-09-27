@@ -1,8 +1,3 @@
-"""
-Configuration Service - Centralized configuration and feature flags management
-Refactored modular version with unified settings
-"""
-
 import os
 import sys
 from dotenv import load_dotenv
@@ -17,23 +12,24 @@ load_dotenv()
 
 # === INTERNAL IMPORTS ===
 from shared.base_app import BaseService
-from shared.settings import get_service_config, Service
+from shared.settings import get_service_config, get_database_config, Service
 from shared.aurora_logging import get_logger
 from database import Base, engine  # Para inicializar DB
-from routers.config_router import config_router
+from routers.auth_router import auth_router, user_router, session_router
 
 # === GET CONFIG FROM CENTRALIZED SETTINGS ===
-config = get_service_config(Service.CONFIG)
+config = get_service_config(Service.AUTH)
 
 # === LOGGER ===
 logger = get_logger(config.service_name)
 
 # === CREATE BASE SERVICE ===
-service = BaseService(Service.CONFIG, version="1.0.0")
+service = BaseService(Service.AUTH, version="1.0.0")
 
 # === REGISTER ROUTERS ===
-service.add_router(config_router, prefix="/aurora_api/v1", tags=["configurations"])
-# service.add_router(flag_router, prefix="/aurora_api/v1", tags=["feature-flags"])
+service.add_router(auth_router, prefix="/aurora_api/v1", tags=["authentication"])
+service.add_router(user_router, prefix="/aurora_api/v1", tags=["users"])
+service.add_router(session_router, prefix="/aurora_api/v1", tags=["sessions"])
 
 # === FASTAPI APP ===
 app: FastAPI = service.app
