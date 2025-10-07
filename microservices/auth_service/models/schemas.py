@@ -1,7 +1,8 @@
 # models/schemas/user_schemas.py
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional, List
 from datetime import datetime
+from fastapi import Request
 
 # --- USUARIO ---
 class UserBase(BaseModel):
@@ -22,7 +23,23 @@ class UserRead(UserBase):
     roles: List[str] = []
 
     class Config:
-        orm_mode = True
+       from_attributes = True
+
+# --- Auth Provider ---
+
+class AuthProviderBase(BaseModel):
+    provider: str
+    provider_user_id: str
+    user_id: int
+
+class AuthProviderCreate(AuthProviderBase):
+    pass
+
+class AuthProviderRead(AuthProviderBase):
+    id: int
+
+    class Config:
+       from_attributes = True
 
 # --- ROLES ---
 class RoleBase(BaseModel):
@@ -35,9 +52,20 @@ class RoleRead(RoleBase):
     id: int
     permissions: List[str] = []
 
-    class Config:
-        orm_mode = True
+    @field_validator("permissions", mode="before")
+    @classmethod
+    def permissions_to_str(cls, v):
+        if v and isinstance(v[0], Permission):
+            return [p.name for p in v]
+        return v
 
+    class Config:
+       from_attributes = True
+
+class RoleUpdate(BaseModel):
+    name: Optional[str]
+    permissions: Optional[List[str]] = []
+    
 # --- PERMISOS ---
 class PermissionBase(BaseModel):
     name: str
@@ -50,8 +78,11 @@ class PermissionRead(PermissionBase):
     id: int
 
     class Config:
-        orm_mode = True
-
+       from_attributes = True
+class PermissionUpdate(BaseModel):
+    name: Optional[str]
+    description: Optional[str]
+    
 # --- SESIONES (MongoDB) ---
 class SessionBase(BaseModel):
     session_id: str
@@ -67,3 +98,12 @@ class SessionCreate(SessionBase):
 class SessionRead(SessionBase):
     created_at: datetime
     expires_at: datetime
+
+#--- CONTEXTO DE AUTENTICACIÓN GOOGLE ---
+class GoogleAuthContext(BaseModel):
+    code: str
+    code_verifier: str
+    request: Request
+
+    class Config:
+        arbitrary_types_allowed = True

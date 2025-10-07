@@ -3,15 +3,17 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from typing import Generator
 from pymongo import MongoClient
+from pymongo.database import Database as MongoDatabase
 from shared.aurora_logging import get_logger
 from shared.sql_logging import setup_sql_logging
-from shared.settings import get_database_config, Service
+from shared.settings import get_database_config, get_mongo_config, Service
 
 # ===============================
 #   Configuración del servicio
 # ===============================
 db_config = get_database_config(Service.AUTH)
 logger = get_logger("auth-service")
+logger.info(db_config)
 
 # ===============================
 #   URL de conexión MySQL/TiDB
@@ -85,14 +87,26 @@ def get_db() -> Generator[Session, None, None]:
 # ===============================
 mongo_config = get_mongo_config(Service.AUTH)
 
-mongo_client = MongoClient(mongo_config.uri)
+logger.info("========== MongoDB Configuration ==========")
+logger.info("Database: %s", mongo_config.database)
+logger.info("============================================")
+
+try:
+    mongo_client = MongoClient(mongo_config.uri)
+    # Ping para verificar la conexión al iniciar
+    mongo_client.admin.command('ping')
+    logger.info("✅ MongoDB connection successful.")
+except Exception as e:
+    logger.error("❌ Failed to connect to MongoDB: %s", e)
+    raise
+
 mongo_db = mongo_client[mongo_config.database]
 
-def get_mongo_db():
+def get_mongo_db() -> Generator[MongoDatabase, None, None]:
+    """Dependency que proporciona la instancia de la base de datos MongoDB."""
     try:
         yield mongo_db
     except Exception as e:
-        logger.error("Error en la conexión MongoDB: %s", e)
+        logger.error("Error en la sesión de MongoDB: %s", e)
         raise
-    finally:
-        pass  # MongoClient maneja su propio cierre de conexiones
+    # MongoClient gestiona el pool de conexiones, no es necesario cerrarlo aquí.

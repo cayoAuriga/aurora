@@ -1,8 +1,10 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Table
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, declarative_base
 from sqlalchemy.sql import func
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
+from datetime import datetime
+Base = declarative_base()
 
 # --- MODELOS ORM ---
 

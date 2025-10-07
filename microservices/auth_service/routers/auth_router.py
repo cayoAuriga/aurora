@@ -1,23 +1,23 @@
 # routers/auth_router.py
-from fastapi import APIRouter, Depends, Form
-from dependencies import get_auth_service, get_user_repository, get_session_repository
-from sqlalchemy.orm import Session
-from database import get_db
+from fastapi import APIRouter, Depends, Form, Request
+from dependencies import get_auth_service, get_uow
+from services.auth_service import AuthService, GoogleAuthContext
+from repositories.unit_of_work import AbstractUnitOfWork
 
-router = APIRouter()
 
-@router.post("/auth/google/callback")
+auth_router = APIRouter()
+
+@auth_router.post("/auth/google/callback")
 def google_callback(
+    request: Request, # Inyectamos el objeto Request
     code: str = Form(...),
     code_verifier: str = Form(...),
-    db: Session = Depends(get_db),
-    auth_service = Depends(lambda: get_auth_service(
-        user_repo=get_user_repository(),
-        session_repo=get_session_repository()
-    ))
+    uow: AbstractUnitOfWork = Depends(get_uow),    
+    auth_service = Depends(get_auth_service),    
 ):
     """Callback de Google OAuth2 con PKCE"""
-    session = auth_service["exchange_google_code"](db, code, code_verifier)
+    context = GoogleAuthContext(code=code, code_verifier=code_verifier, request=request)
+    session = auth_service[AuthService.AUTHENTICATE_GOOGLE](uow, context=context)
     return {
         "session_id": session.session_id,
         "user_id": session.user_id,

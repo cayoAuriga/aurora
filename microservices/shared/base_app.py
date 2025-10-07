@@ -1,8 +1,9 @@
+#./shared/base_app.py
 """
 Base FastAPI application template for Aurora microservices
 Usa configuración unificada desde shared/settings.py
 """
-from typing import Optional, List
+from typing import Optional, List, Callable
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -13,6 +14,20 @@ import uuid
 from .aurora_logging import setup_logging, log_request
 from .settings import get_service_config, Service, ServiceConfig
 
+def create_service_lifespan_wrapper(service_name: str, logger, user_lifespan: Optional[Callable] = None):
+    @asynccontextmanager
+    async def wrapped_lifespan(app: FastAPI):
+        logger.info(f"🚀 Starting {service_name}")
+        
+        # Si el usuario proveyó su propio lifespan, lo ejecutamos aquí
+        if user_lifespan:
+            async with user_lifespan(app):
+                yield
+        else:
+            yield
+            
+        logger.info(f"🛑 Shutting down {service_name}")
+    return wrapped_lifespan
 
 class BaseService:
     """Base class for Aurora microservices (refactorizada para usar settings globales)"""
@@ -23,6 +38,7 @@ class BaseService:
         title: Optional[str] = None,
         description: Optional[str] = None,
         version: str = "1.0.0",
+        lifespan: Optional[Callable] = None, # <-- Aceptar un lifespan externo
     ):
         # === Configuración desde .env ===
         self.config: ServiceConfig = get_service_config(service)
@@ -35,19 +51,17 @@ class BaseService:
             use_json=self.config.environment != "development"
         )
 
-        # === Ciclo de vida del servicio ===
-        @asynccontextmanager
-        async def lifespan(app: FastAPI):
-            self.logger.info(f"🚀 Starting {self.service_name}")
-            yield
-            self.logger.info(f"🛑 Shutting down {self.service_name}")
+        # === Ciclo de vida del servicio (Ahora es compuesto) ===
+        service_lifespan = create_service_lifespan_wrapper(
+            self.service_name, self.logger, user_lifespan=lifespan
+        )
 
         # === FastAPI App ===
         self.app = FastAPI(
             title=title or f"{self.service_name.title()}",
             description=description or f"Aurora {self.service_name} microservice",
             version=version,
-            lifespan=lifespan,
+            lifespan=service_lifespan,
         )
 
         # Inicialización

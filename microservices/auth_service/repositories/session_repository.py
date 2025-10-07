@@ -4,14 +4,16 @@ from datetime import datetime
 from pymongo.collection import Collection
 from models.entities import SessionModel
 from pydantic import parse_obj_as
+from repositories.base import BaseRepository
+from models.schemas import SessionCreate, SessionRead
 
-class SessionRepository(BaseRepository[SessionModel, SessionCreate, SessionUpdate]):
+class SessionRepository(BaseRepository[SessionModel, SessionModel, SessionCreate]):
     """Repositorio para manejar sesiones en MongoDB"""
 
     def __init__(self, collection: Collection):
         self.collection = collection
 
-   def create(self, session: SessionCreate) -> SessionRead:
+    def create(self, session: SessionCreate) -> SessionRead:
         data = session.dict()
         data["created_at"] = datetime.utcnow()
         self.collection.insert_one(data)

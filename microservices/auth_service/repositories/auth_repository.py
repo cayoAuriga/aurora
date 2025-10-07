@@ -3,7 +3,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from models.entities import AuthProvider
 from models.schemas import AuthProviderCreate, AuthProviderUpdate
-from repositories.base import BaseRepository
+from repostories.base import BaseRepository
 
 
 class AuthProviderRepository(BaseRepository[AuthProvider, AuthProviderCreate, AuthProviderUpdate]):

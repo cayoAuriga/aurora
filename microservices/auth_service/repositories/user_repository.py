@@ -1,32 +1,48 @@
 # repositories/user_repository.py
 from typing import Optional, List
 from sqlalchemy.orm import Session
-from models.entities import User, Role, Permission
+from models.entities import User
+from repositories.base import BaseRepository
+from models.schemas import UserCreate, UserUpdate
 
 class UserRepository(BaseRepository[User, UserCreate, UserUpdate]):
-    def create(self, db: Session, obj_in: UserCreate) -> User:
-        user = User(**obj_in.dict())
-        db.add(user)
-        db.commit()
-        db.refresh(user)
+    
+    def __init__(self, session: Session):
+        self.session = session
+
+    def create(self, obj_in: UserCreate) -> User:
+        # Nota: Asumimos que UserCreate tiene los campos necesarios para User
+        user = User(**obj_in.dict()) 
+        self.session.add(user)
+        self.session.flush() # Envía los cambios a la DB para obtener el ID, sin hacer commit
+        self.session.refresh(user)
         return user
 
-    def get(self, db: Session, id: int) -> Optional[User]:
-        return db.query(User).filter(User.id == id).first()
+    def get(self, id: int) -> Optional[User]:
+        return self.session.query(User).filter(User.id == id).first()
 
-    def get_all(self, db: Session, skip=0, limit=100) -> List[User]:
-        return db.query(User).offset(skip).limit(limit).all()
+    def get_by_email(self, email: str) -> Optional[User]: # Añade este método si no lo tienes
+        return self.session.query(User).filter(User.email == email).first()
 
-    def update(self, db: Session, db_obj: User, obj_in: UserUpdate) -> User:
+    def get_all(self, skip=0, limit=100) -> List[User]:
+        return self.session.query(User).offset(skip).limit(limit).all()
+
+    def update(self, db_obj: User, obj_in: UserUpdate) -> User:
         for k, v in obj_in.dict(exclude_unset=True).items():
             setattr(db_obj, k, v)
-        db.commit()
-        db.refresh(db_obj)
+        self.session.flush()
+        self.session.refresh(db_obj)
         return db_obj
 
-    def delete(self, db: Session, id: int) -> Optional[User]:
-        obj = self.get(db, id)
+    def delete(self, id: int) -> Optional[User]:
+        obj = self.get(id)
         if obj:
-            db.delete(obj)
-            db.commit()
+            self.session.delete(obj)
+            self.session.flush()
         return obj
+
+    def asign_role_to_user(self, user: User, role) -> User:
+        if role not in user.roles:
+            user.roles.append(role)
+            self.session.flush()
+        return user
