@@ -21,6 +21,15 @@ class UserRead(UserBase):
     id: int
     is_active: bool
     roles: List[str] = []
+    
+    @field_validator("roles", mode="before")
+    @classmethod
+    def roles_to_str(cls, v):
+        #The value 'v' will be a list of Role ORM objects
+        if v and isinstance(v[0], Role):
+            return [r.name for r in v]
+        # If it's already a list of strings or empty, just return it
+        return v
 
     class Config:
        from_attributes = True

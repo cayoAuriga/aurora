@@ -24,7 +24,8 @@ def create_user_fn(uow: AbstractUnitOfWork, data: UserCreate) -> UserRead:
             raise HTTPException(400, "Email already exists")
         user = uow.users.create(data)
         # El commit se hace automáticamente al salir del 'with'
-    return UserRead.from_orm(user)
+        user_data = UserRead.from_orm(user)
+    return user_data
 
 
 def get_user_fn(uow: AbstractUnitOfWork, user_id: int) -> UserRead:
@@ -32,7 +33,8 @@ def get_user_fn(uow: AbstractUnitOfWork, user_id: int) -> UserRead:
         user = uow.users.get(user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
-    return UserRead.from_orm(user)
+        user_data = UserRead.from_orm(user)
+    return user_data
 
 
 def update_user_fn(uow: AbstractUnitOfWork, user_id: int, data: UserUpdate) -> UserRead:
@@ -41,7 +43,8 @@ def update_user_fn(uow: AbstractUnitOfWork, user_id: int, data: UserUpdate) -> U
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         user = uow.users.update(user, data)
-    return UserRead.from_orm(user)
+        user_data = UserRead.from_orm(user)
+    return user_data
 
 
 def delete_user_fn(uow: AbstractUnitOfWork, user_id: int) -> UserRead:
@@ -50,7 +53,8 @@ def delete_user_fn(uow: AbstractUnitOfWork, user_id: int) -> UserRead:
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         uow.users.delete(user_id)
-    return UserRead.from_orm(user)    
+        user_data = UserRead.from_orm(user)
+    return user_data
 
 
 def list_users_fn(
@@ -58,7 +62,8 @@ def list_users_fn(
 ) -> List[UserRead]:
     with uow:
         users = uow.users.get_all(skip=skip, limit=limit)
-    return [UserRead.from_orm(user) for user in users]
+        user_data = [UserRead.from_orm(user) for user in users]
+    return user_data
 
 
 def assign_role_to_user_fn(
@@ -75,7 +80,8 @@ def assign_role_to_user_fn(
             user.roles.append(role)
         else:
             raise HTTPException(status_code=400, detail="Role already assigned to user")
-    return UserRead.from_orm(user)
+        user_data = UserRead.from_orm(user)
+    return user_data
 
 
 # Factory de servicios

@@ -1,31 +1,50 @@
 # repositories/user_repository.py
 from typing import Optional, List
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from models.entities import User
 from repositories.base import BaseRepository
 from models.schemas import UserCreate, UserUpdate
 
+
 class UserRepository(BaseRepository[User, UserCreate, UserUpdate]):
-    
+
     def __init__(self, session: Session):
         self.session = session
 
     def create(self, obj_in: UserCreate) -> User:
         # Nota: Asumimos que UserCreate tiene los campos necesarios para User
-        user = User(**obj_in.dict()) 
+        user = User(**obj_in.dict())
         self.session.add(user)
-        self.session.flush() # Envía los cambios a la DB para obtener el ID, sin hacer commit
+        self.session.flush()  # Envía los cambios a la DB para obtener el ID, sin hacer commit
         self.session.refresh(user)
         return user
 
     def get(self, id: int) -> Optional[User]:
-        return self.session.query(User).filter(User.id == id).first()
+        return (
+            self.session.query(User)
+            .options(joinedload(User.roles))  # eager load roles
+            .filter(User.id == id)
+            .first()
+        )
 
-    def get_by_email(self, email: str) -> Optional[User]: # Añade este método si no lo tienes
-        return self.session.query(User).filter(User.email == email).first()
+    def get_by_email(
+        self, email: str
+    ) -> Optional[User]:  # Añade este método si no lo tienes
+        return (
+            self.session.query(User)
+            .options(joinedload(User.roles))  # eager load roles
+            .filter(User.email == email)
+            .first()
+        )
 
     def get_all(self, skip=0, limit=100) -> List[User]:
-        return self.session.query(User).offset(skip).limit(limit).all()
+        return (
+            self.session.query(User)
+            .options(joinedload(User.roles))  # eager load roles
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
 
     def update(self, db_obj: User, obj_in: UserUpdate) -> User:
         for k, v in obj_in.dict(exclude_unset=True).items():

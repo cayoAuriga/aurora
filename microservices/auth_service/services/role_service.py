@@ -29,7 +29,8 @@ def assign_permission_to_role_fn(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Permission not found"
             )
         updated_role = uow.roles.assign_permission(role, perm)
-    return RoleRead.from_orm(updated_role)
+        role_data = RoleRead.from_orm(updated_role)
+    return role_data
 
 
 def create_role_fn(uow: AbstractUnitOfWork, data: RoleCreate) -> RoleRead:
@@ -40,7 +41,8 @@ def create_role_fn(uow: AbstractUnitOfWork, data: RoleCreate) -> RoleRead:
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Role already exists"
             )
         role = uow.roles.create(data)
-    return RoleRead.from_orm(role)
+        role_data = RoleRead.from_orm(role)
+    return role_data
 
 def get_role_fn(uow: AbstractUnitOfWork, role_id: int) -> RoleRead:
     with uow:
@@ -49,7 +51,8 @@ def get_role_fn(uow: AbstractUnitOfWork, role_id: int) -> RoleRead:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
             )
-    return RoleRead.from_orm(role)
+        role_data = RoleRead.from_orm(role)
+    return role_data
 
 def update_role_fn(uow: AbstractUnitOfWork, role_id: int, data: RoleUpdate) -> RoleRead:
     with uow:
@@ -66,12 +69,14 @@ def update_role_fn(uow: AbstractUnitOfWork, role_id: int, data: RoleUpdate) -> R
                 )
             role.name = data.name
         updated_role = uow.roles.update(role)
-    return RoleRead.from_orm(updated_role)
+        role_data = RoleRead.from_orm(updated_role)
+    return role_data
 
 def list_roles_fn(uow: AbstractUnitOfWork) -> List[RoleRead]:
     with uow:
         roles = uow.roles.get_all()
-    return [RoleRead.from_orm(role) for role in roles]
+        role_list = [RoleRead.from_orm(role) for role in roles]
+    return role_list
 
 def revoke_permission_from_role_fn(
     uow: AbstractUnitOfWork, role_id: int, perm_id: int
@@ -88,9 +93,8 @@ def revoke_permission_from_role_fn(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Permission not found"
             )
         updated_role = uow.roles.revoke_permission(role, perm)
-    return RoleRead.from_orm(updated_role)
-
-
+        role_data = RoleRead.from_orm(updated_role)
+    return role_data
 
 
 def assign_many_permissions_to_role_fn(
@@ -109,9 +113,10 @@ def assign_many_permissions_to_role_fn(
                 detail="One or more permissions not found",
             )
         updated_role = uow.roles.update_role_permissions(role, perms)
-    return RoleRead.from_orm(updated_role)
+        role_data = RoleRead.from_orm(updated_role)
+    return role_data
 
-def delete_role_fn(uow: AbstractUnitOfWork, role_id: int) -> bool:
+def delete_role_fn(uow: AbstractUnitOfWork, role_id: int) -> RoleRead:
     with uow:
         role = uow.roles.get(role_id)
         if not role:
@@ -119,7 +124,8 @@ def delete_role_fn(uow: AbstractUnitOfWork, role_id: int) -> bool:
                 status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
             )
         uow.roles.delete(role)
-    return True
+        role_data = RoleRead.from_orm(role)
+    return role_data
 
 def create_role_service() -> Dict[str, Callable]:
     return {
